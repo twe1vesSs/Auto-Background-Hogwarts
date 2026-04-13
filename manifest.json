@@ -1,0 +1,8 @@
+{
+"name": "Hogwarts Auto Background",
+"description": "Автоматически меняет фон по ключевым словам",
+"version": "1.0.0",
+"author": "TwelvesSs",
+"main": "index.js"
+
+}
