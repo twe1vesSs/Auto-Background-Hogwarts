@@ -1,23 +1,11 @@
-/* Плавность фона */
-#bg1 { 
+#bg1, #bg2 { 
     transition: background-image 1.5s ease-in-out !important; 
 }
 
-/* Стили для выпадающего списка (как в Typing Indicator) */
-.hp-bg-settings-container {
-    border-bottom: 1px solid var(--smart-line-color);
-}
-
-.hp-bg-settings-content {
+/* Копируем отступы из твоего рабочего CSS для консистентности меню */
+.inline-drawer-content {
     padding: 10px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-}
-
-.hp-bg-settings-content .checkbox_label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
 }
