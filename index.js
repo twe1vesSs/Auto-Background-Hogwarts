@@ -10,14 +10,12 @@ const defaultSettings = {
     defaultBackground: "hogwarts_exterior.jpg"
 };
 
-// Загрузка настроек
 function getSettings() {
     if (extension_settings[MODULE] === undefined) {
         extension_settings[MODULE] = structuredClone(defaultSettings);
     }
     return extension_settings[MODULE];
 }
-
 const backgroundMap = {
     "большой зал, обед": "hogwarts_great_hall.jpg",
     "запретный лес": "forbidden_forest.jpg",
@@ -62,34 +60,32 @@ function checkAndChangeBackground(text) {
     }
 }
 
-// Отрисовка плашки (как в примере с пером)
 function addExtensionSettings() {
     const settings = getSettings();
     const settingsContainer = document.getElementById('extensions_settings');
     if (!settingsContainer) return;
 
+    // Создаем структуру как в твоем рабочем примере
     const inlineDrawer = document.createElement('div');
-    inlineDrawer.classList.add('inline-drawer');
-    settingsContainer.append(inlineDrawer);
+    inlineDrawer.classList.add('inline-drawer', 'hp-bg-settings-container');
 
     const inlineDrawerToggle = document.createElement('div');
     inlineDrawerToggle.classList.add('inline-drawer-toggle', 'inline-drawer-header');
 
-    const nameText = document.createElement('b');
-    nameText.textContent = 'Auto Background Hogwarts 🏰';
+    const title = document.createElement('b');
+    title.textContent = 'Auto Background Hogwarts 🏰';
 
     const icon = document.createElement('div');
     icon.classList.add('inline-drawer-icon', 'fa-solid', 'fa-circle-chevron-down', 'down');
 
-    inlineDrawerToggle.append(nameText, icon);
+    inlineDrawerToggle.append(title, icon);
 
     const inlineDrawerContent = document.createElement('div');
-    inlineDrawerContent.classList.add('inline-drawer-content');
-    inlineDrawer.append(inlineDrawerToggle, inlineDrawerContent);
+    inlineDrawerContent.classList.add('inline-drawer-content', 'hp-bg-settings-content');
 
-    // Чекбокс включения
     const label = document.createElement('label');
     label.classList.add('checkbox_label');
+    
     const checkbox = document.createElement('input');
     checkbox.type = 'checkbox';
     checkbox.checked = settings.enabled;
@@ -97,19 +93,22 @@ function addExtensionSettings() {
         settings.enabled = checkbox.checked;
         saveSettingsDebounced();
     });
-    const text = document.createElement('span');
-    text.textContent = 'Включить авто-смену фонов';
-    
-    label.append(checkbox, text);
+
+    const labelText = document.createElement('span');
+    labelText.textContent = 'Включить авто-смену фонов';
+
+    label.append(checkbox, labelText);
     inlineDrawerContent.append(label);
+    inlineDrawer.append(inlineDrawerToggle, inlineDrawerContent);
+    
+    settingsContainer.append(inlineDrawer);
+    console.log('[HP-BG] Settings panel added to DOM');
 }
 
-// Инициализация
 (function init() {
     addExtensionSettings();
     
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
-        // Получаем текст сообщения через DOM для надежности
         const chatElements = document.querySelectorAll('.mes_text');
         const lastMessage = chatElements[chatElements.length - 1]?.innerText;
         checkAndChangeBackground(lastMessage);
