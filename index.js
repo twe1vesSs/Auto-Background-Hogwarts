@@ -1,10 +1,12 @@
 import { eventSource, event_types } from '../../../../script.js';
 
-const extensionPath = 'scripts/extensions/third-party/Auto-Background-Hogwarts';
+const extensionName = "Auto-Background-Hogwarts";
+const extensionPath = `scripts/extensions/third-party/${extensionName}`;
 
-const defaultBackground = "hogwarts_exterior.jpg";
-
-const backgroundMap = {
+let settings = {
+    isEnabled: true,
+    defaultBackground: "hogwarts_exterior.jpg"
+};
 
 const backgroundMap = {
     "большой зал, обед": "hogwarts_great_hall.jpg",
@@ -26,19 +28,11 @@ const backgroundMap = {
     "черное озеро": "black_lake.jpg",
 };
 
-const style = document.createElement('style');
-style.innerHTML = `
-    #bg1, #bg2 { 
-        transition: background-image 1.5s ease-in-out !important; 
-    }
-`;
-document.head.appendChild(style);
-
 function checkAndChangeBackground(text) {
-    if (!text) return;
+    if (!settings.isEnabled || !text) return;
+    
     const lowerText = text.toLowerCase();
-    let newBg = defaultBackground; // По умолчанию ставим базовый
-
+    let newBg = settings.defaultBackground;
 
     for (const [keyword, bgFile] of Object.entries(backgroundMap)) {
         if (lowerText.includes(keyword)) {
@@ -48,22 +42,46 @@ function checkAndChangeBackground(text) {
     }
 
     const bgUrl = `${extensionPath}/backgrounds/${newBg}`;
-    const currentBg = $('#bg1').css('background-image');
-
-    if (!currentBg.includes(newBg)) {
-        console.log(`[Auto-BG-HP] Переключение на: ${newBg}`);
-        $('#bg1').css('background-image', `url("${bgUrl}")`);
+    if ($('#bg1').length) {
+        // Проверяем, не тот же ли это фон, чтобы не перезапускать анимацию зря
+        const currentBg = $('#bg1').css('background-image');
+        if (!currentBg.includes(newBg)) {
+            $('#bg1').css('background-image', `url("${bgUrl}")`);
+        }
     }
 }
 
-eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
-    const chatElements = document.querySelectorAll('.mes_text');
-    const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-    checkAndChangeBackground(lastMessage);
-});
+function initSettings() {
+    const html = `
+        <div class="hp-bg-settings">
+            <h4>Hogwarts Auto-Background</h4>
+            <label class="checkbox_label">
+                <input type="checkbox" id="hp_bg_enable" ${settings.isEnabled ? 'checked' : ''}>
+                Включить авто-смену фонов
+            </label>
+        </div>
+    `;
+    $('#extensions_settings').append(html);
 
-eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
-    const chatElements = document.querySelectorAll('.mes_text');
-    const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-    checkAndChangeBackground(lastMessage);
-});
+    $('#hp_bg_enable').on('change', function() {
+        settings.isEnabled = $(this).prop('checked');
+    });
+}
+
+(function init() {
+    initSettings();
+    
+    eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
+        const chatElements = document.querySelectorAll('.mes_text');
+        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
+        checkAndChangeBackground(lastMessage);
+    });
+
+    eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
+        const chatElements = document.querySelectorAll('.mes_text');
+        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
+        checkAndChangeBackground(lastMessage);
+    });
+    
+    console.log('[HP-BG] Extension Loaded with CSS');
+})();
