@@ -1,123 +1,86 @@
-import {
-    eventSource,
-    event_types,
-    saveSettingsDebounced,
-} from '../../../../script.js';
-import { extension_settings } from '../../../extensions.js';
-import { t } from '../../../i18n.js';
+import { eventSource, event_types } from '../../../../script.js';
+import { getContext } from '../../../../scripts/extensions.js';
 
-const MODULE = 'hogwarts_auto_bg';
 const extensionName = "Auto-Background-Hogwarts";
-const extensionPath = `scripts/extensions/third-party/${extensionName}`;
+const scriptPath = import.meta.url;
+const extensionRoot = scriptPath.substring(0, scriptPath.lastIndexOf('/'));
 
-const defaultSettings = {
-    enabled: true,
-    defaultBackground: "hogwarts_exterior.jpg",
-};
+// Список доступных файлов (должен совпадать с именами на GitHub)
+const availableBackgrounds = [
+    "hogwarts_great_hall.jpg",
+    "forbidden_forest.jpg",
+    "hagrids_hut.jpg",
+    "quidditch_pitch.jpg",
+    "hogwarts_library.jpg",
+    "dumbledore_office.jpg",
+    "gryffindor_common.jpg",
+    "slytherin_common.jpg",
+    "ravenclaw_common.jpg",
+    "hufflepuff_common.jpg",
+    "bedroom_common.jpg",
+    "teachers_room_common.jpg",
+    "hogwarts_dungeon.jpg",
+    "potions_classroom.jpg",
+    "hogwarts_corridor.jpg",
+    "hogsmeade_village.jpg",
+    "black_lake.jpg",
+    "hogwarts_exterior.jpg"
+];
 
-const backgroundMap = {
-    "большой зал": "hogwarts_great_hall.jpg",
-    "обед": "hogwarts_great_hall.jpg",
-    "запретный лес": "forbidden_forest.jpg",
-    "хижина хагрида": "hagrids_hut.jpg",
-    "квиддич": "quidditch_pitch.jpg",
-    "библиотека": "hogwarts_library.jpg",
-    "кабинет дамблдора": "dumbledore_office.jpg",
-    "гостиная гриффиндор": "gryffindor_common.jpg",
-    "гостиная слизерин": "slytherin_common.jpg",
-    "гостиная когтевран": "ravenclaw_common.jpg",
-    "гостиная пуффендуй": "hufflepuff_common.jpg",
-    "спальня": "spat_common.jpg",
-    "учительская": "ychit_common.jpg",
-    "подземелье": "hogwarts_dungeon.jpg",
-    "зельеварение": "potions_classroom.jpg",
-    "коридор": "hogwarts_corridor.jpg",
-    "хогсмид": "hogsmeade_village.jpg",
-    "черное озеро": "black_lake.jpg",
-};
-
-function getSettings() {
-    if (extension_settings[MODULE] === undefined) {
-        extension_settings[MODULE] = structuredClone(defaultSettings);
-    }
-    return extension_settings[MODULE];
-}
-
-function checkAndChangeBackground(text) {
-    const settings = getSettings();
-    if (!settings.enabled || !text) return;
+async function askAIForBackground(userText) {
+    const context = getContext();
     
-    const lowerText = text.toLowerCase();
-    let newBg = settings.defaultBackground;
+    // Формируем системный промпт для выбора фона
+    const prompt = `Анализируй текст сообщения и выбери ОДНО наиболее подходящее название файла из списка ниже. 
+    Ответь ТОЛЬКО названием файла. Если ничего не подходит, ответь "hogwarts_exterior.jpg".
+    
+    Список: ${availableBackgrounds.join(', ')}
+    
+    Текст сообщения: "${userText}"`;
 
-    for (const [keyword, bgFile] of Object.entries(backgroundMap)) {
-        if (lowerText.includes(keyword)) {
-            newBg = bgFile;
-            break; 
-        }
-    }
+    try {
+        // Используем внутреннюю функцию Таверны для быстрого запроса
+        const response = await fetch('/api/extra/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: prompt,
+                max_context_length: 500,
+                max_length: 20,
+                quiet: true
+            })
+        });
 
-    const bgUrl = `${extensionPath}/backgrounds/${newBg}`;
-    const bgElement = document.getElementById('bg1');
-    if (bgElement) {
-        const urlValue = `url("${bgUrl}")`;
-        if (bgElement.style.backgroundImage !== urlValue) {
-            bgElement.style.backgroundImage = urlValue;
-        }
+        const data = await response.json();
+        const chosenBg = data.output.trim().toLowerCase();
+        
+        // Проверяем, есть ли такой файл в нашем списке (защита от галлюцинаций ИИ)
+        return availableBackgrounds.find(bg => chosenBg.includes(bg)) || "hogwarts_exterior.jpg";
+    } catch (e) {
+        console.error("[HP-BG] Ошибка запроса к ИИ:", e);
+        return "hogwarts_exterior.jpg";
     }
 }
 
-function addExtensionSettings(settings) {
-    const settingsContainer = document.getElementById('extensions_settings');
-    if (!settingsContainer) return;
-
-    const inlineDrawer = document.createElement('div');
-    inlineDrawer.classList.add('inline-drawer');
-    settingsContainer.append(inlineDrawer);
-
-    const inlineDrawerToggle = document.createElement('div');
-    inlineDrawerToggle.classList.add('inline-drawer-toggle', 'inline-drawer-header');
-
-    const extensionTitle = document.createElement('b');
-    extensionTitle.textContent = t`Auto Background Hogwarts 🏰`;
-
-    const inlineDrawerIcon = document.createElement('div');
-    inlineDrawerIcon.classList.add('inline-drawer-icon', 'fa-solid', 'fa-circle-chevron-down', 'down');
-
-    inlineDrawerToggle.append(extensionTitle, inlineDrawerIcon);
-
-    const inlineDrawerContent = document.createElement('div');
-    inlineDrawerContent.classList.add('inline-drawer-content');
-    inlineDrawer.append(inlineDrawerToggle, inlineDrawerContent);
-
-    const enabledCheckboxLabel = document.createElement('label');
-    enabledCheckboxLabel.classList.add('checkbox_label');
-    const enabledCheckbox = document.createElement('input');
-    enabledCheckbox.type = 'checkbox';
-    enabledCheckbox.checked = settings.enabled;
-    enabledCheckbox.addEventListener('change', () => {
-        settings.enabled = enabledCheckbox.checked;
-        saveSettingsDebounced();
-    });
-    const enabledCheckboxText = document.createElement('span');
-    enabledCheckboxText.textContent = t`Включить авто-фоны`;
-    enabledCheckboxLabel.append(enabledCheckbox, enabledCheckboxText);
-    inlineDrawerContent.append(enabledCheckboxLabel);
+async function handleBackgroundUpdate(text) {
+    console.log("[HP-BG] ИИ анализирует контекст...");
+    const bestBg = await askAIForBackground(text);
+    
+    const bgUrl = `${extensionRoot}/backgrounds/${bestBg}`;
+    const bgElement = document.getElementById('bg1');
+    
+    if (bgElement) {
+        bgElement.style.setProperty('background-image', `url("${bgUrl}")`, 'important');
+        console.log(`[HP-BG] ИИ выбрал локацию: ${bestBg}`);
+    }
 }
 
 (function init() {
-    const settings = getSettings();
-    addExtensionSettings(settings);
-
-    eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
+    eventSource.on(event_types.MESSAGE_RECEIVED, async (messageId) => {
         const chatElements = document.querySelectorAll('.mes_text');
         const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-        checkAndChangeBackground(lastMessage);
+        await handleBackgroundUpdate(lastMessage);
     });
-
-    eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
-        const chatElements = document.querySelectorAll('.mes_text');
-        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-        checkAndChangeBackground(lastMessage);
-    });
+    
+    console.log('[HP-BG] Умная смена фонов запущена');
 })();
