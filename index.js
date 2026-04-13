@@ -1,5 +1,8 @@
 import { eventSource, event_types } from '../../../../script.js';
+import { eventSource, event_types } from '../../../../script.js';
+import { getContext } from '../../../../scripts/extensions.js';
 
+// ПРОВЕРЬ: Название папки на GitHub должно быть в точности таким
 const extensionName = "Auto-Background-Hogwarts";
 const extensionPath = `scripts/extensions/third-party/${extensionName}`;
 
@@ -42,17 +45,21 @@ function checkAndChangeBackground(text) {
     }
 
     const bgUrl = `${extensionPath}/backgrounds/${newBg}`;
-    if ($('#bg1').length) {
-        // Проверяем, не тот же ли это фон, чтобы не перезапускать анимацию зря
-        const currentBg = $('#bg1').css('background-image');
-        if (!currentBg.includes(newBg)) {
-            $('#bg1').css('background-image', `url("${bgUrl}")`);
+    
+    // Прямой поиск элемента фона Таверны
+    const bgElement = document.getElementById('bg1');
+    if (bgElement) {
+        const urlValue = `url("${bgUrl}")`;
+        if (bgElement.style.backgroundImage !== urlValue) {
+            console.log(`[HP-BG] Смена фона на: ${newBg}`);
+            bgElement.style.backgroundImage = urlValue;
         }
     }
 }
 
+// Функция создания настроек с задержкой, чтобы DOM успел прогрузиться
 function initSettings() {
-    const html = `
+    const settingsHtml = `
         <div class="hp-bg-settings">
             <h4>Hogwarts Auto-Background</h4>
             <label class="checkbox_label">
@@ -61,27 +68,34 @@ function initSettings() {
             </label>
         </div>
     `;
-    $('#extensions_settings').append(html);
-
-    $('#hp_bg_enable').on('change', function() {
-        settings.isEnabled = $(this).prop('checked');
-    });
+    
+    // Пытаемся добавить в контейнер расширений
+    const container = document.getElementById('extensions_settings');
+    if (container) {
+        container.insertAdjacentHTML('beforeend', settingsHtml);
+        document.getElementById('hp_bg_enable').addEventListener('change', (e) => {
+            settings.isEnabled = e.target.checked;
+        });
+    }
 }
 
-(function init() {
+// Инициализация
+async function init() {
     initSettings();
     
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
-        const chatElements = document.querySelectorAll('.mes_text');
-        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-        checkAndChangeBackground(lastMessage);
+        const context = getContext();
+        const message = context.chat[messageId];
+        if (message) checkAndChangeBackground(message.mes);
     });
 
     eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
-        const chatElements = document.querySelectorAll('.mes_text');
-        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
-        checkAndChangeBackground(lastMessage);
+        const context = getContext();
+        const message = context.chat[messageId];
+        if (message) checkAndChangeBackground(message.mes);
     });
-    
-    console.log('[HP-BG] Extension Loaded with CSS');
-})();
+
+    console.log('[HP-BG] Инициализировано');
+}
+
+init();
