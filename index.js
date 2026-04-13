@@ -16,7 +16,8 @@ const defaultSettings = {
 };
 
 const backgroundMap = {
-    "большой зал, обед": "hogwarts_great_hall.jpg",
+    "большой зал": "hogwarts_great_hall.jpg",
+    "обед": "hogwarts_great_hall.jpg",
     "запретный лес": "forbidden_forest.jpg",
     "хижина хагрида": "hagrids_hut.jpg",
     "квиддич": "quidditch_pitch.jpg",
