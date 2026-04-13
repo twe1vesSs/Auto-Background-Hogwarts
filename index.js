@@ -1,15 +1,22 @@
-import { eventSource, event_types } from '../../../../script.js';
-import { eventSource, event_types } from '../../../../script.js';
-import { getContext } from '../../../../scripts/extensions.js';
+import { eventSource, event_types, saveSettingsDebounced } from '../../../../script.js';
+import { extension_settings } from '../../../extensions.js';
 
-// ПРОВЕРЬ: Название папки на GitHub должно быть в точности таким
+const MODULE = 'hogwarts_auto_bg';
 const extensionName = "Auto-Background-Hogwarts";
 const extensionPath = `scripts/extensions/third-party/${extensionName}`;
 
-let settings = {
-    isEnabled: true,
+const defaultSettings = {
+    enabled: true,
     defaultBackground: "hogwarts_exterior.jpg"
 };
+
+// Загрузка настроек
+function getSettings() {
+    if (extension_settings[MODULE] === undefined) {
+        extension_settings[MODULE] = structuredClone(defaultSettings);
+    }
+    return extension_settings[MODULE];
+}
 
 const backgroundMap = {
     "большой зал, обед": "hogwarts_great_hall.jpg",
@@ -32,7 +39,8 @@ const backgroundMap = {
 };
 
 function checkAndChangeBackground(text) {
-    if (!settings.isEnabled || !text) return;
+    const settings = getSettings();
+    if (!settings.enabled || !text) return;
     
     const lowerText = text.toLowerCase();
     let newBg = settings.defaultBackground;
@@ -45,57 +53,71 @@ function checkAndChangeBackground(text) {
     }
 
     const bgUrl = `${extensionPath}/backgrounds/${newBg}`;
-    
-    // Прямой поиск элемента фона Таверны
     const bgElement = document.getElementById('bg1');
     if (bgElement) {
         const urlValue = `url("${bgUrl}")`;
         if (bgElement.style.backgroundImage !== urlValue) {
-            console.log(`[HP-BG] Смена фона на: ${newBg}`);
             bgElement.style.backgroundImage = urlValue;
         }
     }
 }
 
-// Функция создания настроек с задержкой, чтобы DOM успел прогрузиться
-function initSettings() {
-    const settingsHtml = `
-        <div class="hp-bg-settings">
-            <h4>Hogwarts Auto-Background</h4>
-            <label class="checkbox_label">
-                <input type="checkbox" id="hp_bg_enable" ${settings.isEnabled ? 'checked' : ''}>
-                Включить авто-смену фонов
-            </label>
-        </div>
-    `;
+// Отрисовка плашки (как в примере с пером)
+function addExtensionSettings() {
+    const settings = getSettings();
+    const settingsContainer = document.getElementById('extensions_settings');
+    if (!settingsContainer) return;
+
+    const inlineDrawer = document.createElement('div');
+    inlineDrawer.classList.add('inline-drawer');
+    settingsContainer.append(inlineDrawer);
+
+    const inlineDrawerToggle = document.createElement('div');
+    inlineDrawerToggle.classList.add('inline-drawer-toggle', 'inline-drawer-header');
+
+    const nameText = document.createElement('b');
+    nameText.textContent = 'Auto Background Hogwarts 🏰';
+
+    const icon = document.createElement('div');
+    icon.classList.add('inline-drawer-icon', 'fa-solid', 'fa-circle-chevron-down', 'down');
+
+    inlineDrawerToggle.append(nameText, icon);
+
+    const inlineDrawerContent = document.createElement('div');
+    inlineDrawerContent.classList.add('inline-drawer-content');
+    inlineDrawer.append(inlineDrawerToggle, inlineDrawerContent);
+
+    // Чекбокс включения
+    const label = document.createElement('label');
+    label.classList.add('checkbox_label');
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = settings.enabled;
+    checkbox.addEventListener('change', () => {
+        settings.enabled = checkbox.checked;
+        saveSettingsDebounced();
+    });
+    const text = document.createElement('span');
+    text.textContent = 'Включить авто-смену фонов';
     
-    // Пытаемся добавить в контейнер расширений
-    const container = document.getElementById('extensions_settings');
-    if (container) {
-        container.insertAdjacentHTML('beforeend', settingsHtml);
-        document.getElementById('hp_bg_enable').addEventListener('change', (e) => {
-            settings.isEnabled = e.target.checked;
-        });
-    }
+    label.append(checkbox, text);
+    inlineDrawerContent.append(label);
 }
 
 // Инициализация
-async function init() {
-    initSettings();
+(function init() {
+    addExtensionSettings();
     
     eventSource.on(event_types.MESSAGE_RECEIVED, (messageId) => {
-        const context = getContext();
-        const message = context.chat[messageId];
-        if (message) checkAndChangeBackground(message.mes);
+        // Получаем текст сообщения через DOM для надежности
+        const chatElements = document.querySelectorAll('.mes_text');
+        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
+        checkAndChangeBackground(lastMessage);
     });
 
     eventSource.on(event_types.USER_MESSAGE_RENDERED, (messageId) => {
-        const context = getContext();
-        const message = context.chat[messageId];
-        if (message) checkAndChangeBackground(message.mes);
+        const chatElements = document.querySelectorAll('.mes_text');
+        const lastMessage = chatElements[chatElements.length - 1]?.innerText;
+        checkAndChangeBackground(lastMessage);
     });
-
-    console.log('[HP-BG] Инициализировано');
-}
-
-init();
+})();
